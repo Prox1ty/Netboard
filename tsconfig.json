@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    /* Language */
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+
+    /* Strictness */
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    /* Project */
+    "rootDir": ".",
+
+    /* Interop */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* Quality of life */
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Emit */
+    "noEmit": true
+  }
+}
