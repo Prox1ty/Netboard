@@ -1,12 +1,13 @@
 import React, {useEffect, useRef, useState} from 'react'
 import CanvasInstance from '../../../engine/src/Objects/Canvas';
+import { CHUNK_WIDTH, CHUNK_HEIGHT } from '../../../engine/src/constants';
 
 function WhiteBoard() {
 
     const canvasElementRef = useRef<HTMLCanvasElement>(null);
     const engineRef = useRef<CanvasInstance | null>(null);
 
-    const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+    const [dimensions, setDimensions] = useState({ width: CHUNK_WIDTH, height: CHUNK_HEIGHT });
 
     const bottomSentinelRef = useRef(null);
     const rightSentinelRef = useRef(null);
@@ -24,20 +25,20 @@ function WhiteBoard() {
 
             if (entry.target === bottomSentinelRef.current) {
                 // add 1000px to height
-                setDimensions((prev) => ({...prev, height: prev.height + 1000}));
+                setDimensions((prev) => ({...prev, height: prev.height + CHUNK_HEIGHT}));
             }
             if (entry.target === rightSentinelRef.current) {
                 // add 1000px to width
-                setDimensions((prev) => ({...prev, width: prev.width + 1000}));
+                setDimensions((prev) => ({...prev, width: prev.width + CHUNK_WIDTH}));
             }
         });
-    }, observerOptions);
+        }, observerOptions);
 
-    // track both edges
-    if (bottomSentinelRef.current) observer.observe(bottomSentinelRef.current);
-    if (rightSentinelRef.current) observer.observe(rightSentinelRef.current);
+      // track both edges
+        if (bottomSentinelRef.current) observer.observe(bottomSentinelRef.current);
+        if (rightSentinelRef.current) observer.observe(rightSentinelRef.current);
 
-    return () => observer.disconnect();
+        return () => observer.disconnect();
     }, []);
 
     
@@ -47,7 +48,6 @@ function WhiteBoard() {
         if (!canvasElementRef.current) return;
         
         engineRef.current = new CanvasInstance(canvasElementRef.current);
-
         // remove listeners IMPLEMENT LATER
         // return () => {
         //     engineRef.current?.destroy();
@@ -85,10 +85,10 @@ function WhiteBoard() {
     <div
         ref={boardContainerRef}
         className="whiteboard-scroll whiteboard-background relative h-screen w-screen overflow-auto"
-        style={{
-            width: `${dimensions.width}`,
-            height: `${dimensions.height}`
-        }}
+        // style={{
+        //     width: `${dimensions.width}`,
+        //     height: `${dimensions.height}`
+        // }}
     >
     <canvas 
         className= 'bg-[var(--bg)]'

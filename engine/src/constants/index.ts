@@ -1,0 +1,11 @@
+
+const CHUNK_HEIGHT = 1620;
+const CHUNK_WIDTH = 1080;
+
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 5;
+
+const DEFAULT_ZOOM = 1;
+
+
+export {CHUNK_HEIGHT, CHUNK_WIDTH, MIN_ZOOM, MAX_ZOOM, DEFAULT_ZOOM};

@@ -1,10 +1,11 @@
 import Point from "./Point";
+import {CHUNK_WIDTH, CHUNK_HEIGHT} from "../constants/index"
 
 export default class CanvasInstance {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
 
-
+    private g_strokeState: Record<number, Point[][]>;
     private strokes: Point[][] = [];
     private currentStroke: Point[] = [];
     public currentStrokeClr = "red";
@@ -22,6 +23,8 @@ export default class CanvasInstance {
         if (!this.ctx) {
             throw new Error('2D context unavailable');
         }
+
+        this.drawBoardBoundaries();
     }
 
     validPoint(x: number, y: number) : boolean {
@@ -106,6 +109,8 @@ export default class CanvasInstance {
     }
 
     fullBoardRender() {
+        this.drawBoardBoundaries();
+
         this.ctx.strokeStyle = this.currentStrokeClr;
         if (this.strokes.length >= 1) {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -119,5 +124,26 @@ export default class CanvasInstance {
                 this.ctx.stroke();
             }
         } 
+    }
+
+    drawBoardBoundaries() {
+        const width: number = this.canvas.width;
+        const height: number = this.canvas.height;
+        this.ctx.strokeStyle = "gray";
+        this.ctx.beginPath();
+
+        // vertical boundaries
+        for (let x = CHUNK_WIDTH; x < width; x += CHUNK_WIDTH) {
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, height);
+        }
+
+        // horizontal boundaries
+        for (let y = CHUNK_HEIGHT; y < height; y += CHUNK_HEIGHT) {
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(width, y);
+        }
+
+        this.ctx.stroke();
     }
 }

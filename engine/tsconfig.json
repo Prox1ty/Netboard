@@ -5,5 +5,5 @@
     "outDir": "./dist",
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["src"] // ignores everything except the files under src. Useful if you want to run tests outside src
+  "include": ["src", "src/constants"] // ignores everything except the files under src. Useful if you want to run tests outside src
 }
