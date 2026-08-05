@@ -11,7 +11,7 @@ function WhiteBoard() {
 
     const bottomSentinelRef = useRef(null);
     const rightSentinelRef = useRef(null);
-    const boardContainerRef = useRef(null);
+    const boardContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const observerOptions = {
@@ -46,8 +46,9 @@ function WhiteBoard() {
 
     useEffect(() => {
         if (!canvasElementRef.current) return;
+        if (!boardContainerRef.current) return;
         
-        engineRef.current = new CanvasInstance(canvasElementRef.current);
+        engineRef.current = new CanvasInstance(canvasElementRef.current, boardContainerRef.current);
         // remove listeners IMPLEMENT LATER
         // return () => {
         //     engineRef.current?.destroy();
@@ -85,6 +86,7 @@ function WhiteBoard() {
     <div
         ref={boardContainerRef}
         className="whiteboard-scroll whiteboard-background relative h-screen w-screen overflow-auto"
+        onScroll={() => {engineRef.current?.handleScroll()}}
         // style={{
         //     width: `${dimensions.width}`,
         //     height: `${dimensions.height}`
