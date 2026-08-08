@@ -177,7 +177,7 @@ export default class CanvasInstance {
         const left = this.container.scrollLeft;
         const right = left + this.container.clientWidth;
         const bottom = top + this.container.clientHeight;
-
+             
 
         const [minX, minY] : number[] = this.getChunkCoordinate(left, top);
         const [maxX, maxY]: number[] = this.getChunkCoordinate(right, bottom);
@@ -247,7 +247,7 @@ export default class CanvasInstance {
         for (let i = minX; i <= maxX; i++) {
             for (let j = minY; j <= maxY; j++) {
                 const currentChunk: ChunkCoordinate = `${i},${j}`;
-
+                console.log(`Rendering chunk (${i},${j})`); 
 
                 if (currentChunk) {
                     const strokeIds = this.spatialIndex.get(currentChunk);
