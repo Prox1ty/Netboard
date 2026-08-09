@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react'
-import CanvasInstance from '../../../engine/src/Objects/Canvas';
+import CanvasInstance from '../../../engine/src/Canvas';
 import { CHUNK_WIDTH, CHUNK_HEIGHT } from '../../../engine/src/constants';
 
 function WhiteBoard() {
