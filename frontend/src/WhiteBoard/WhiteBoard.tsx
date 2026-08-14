@@ -95,13 +95,29 @@ function WhiteBoard() {
     <canvas 
         className= 'bg-[var(--bg)]'
         ref={canvasElementRef}
-
+        tabIndex={0}
         width={dimensions.width}
         height={dimensions.height}
 
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onKeyDown={(e) => {
+        // 1. Support both Windows/Linux (ctrlKey) and macOS (metaKey)
+        const isModifierPressed = e.ctrlKey || e.metaKey;
+
+        if (isModifierPressed && e.code === 'KeyZ') {
+            // 2. Stop the browser from executing its own default undo action
+            e.preventDefault(); 
+            console.log("Undo fired");
+            engineRef.current?.undo();
+        } 
+        else if (isModifierPressed && e.code === 'KeyY') {
+            e.preventDefault();
+            console.log("Redo fired");
+            engineRef.current?.redo();
+        }
+        }}
     ></canvas>
     <div
         ref={rightSentinelRef}
