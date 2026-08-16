@@ -1,6 +1,7 @@
 import Point from "./types/Point";
 import Stroke from "./types/Stroke";
 import CanvasRenderer from "./Renderer"
+import Camera from "./Camera";
 import { VisibleChunkRange } from "./types";
 import {CHUNK_WIDTH, CHUNK_HEIGHT} from "./constants/index"
 
@@ -14,7 +15,7 @@ export default class CanvasInstance {
     private canvas: HTMLCanvasElement;
     private renderer: CanvasRenderer;
     private ctx: CanvasRenderingContext2D;
-    private container: HTMLDivElement;
+    private camera: Camera;
 
     private spatialIndex = new Map<ChunkCoordinate, Set<number>>();
     private strokes = new Map<number, Stroke> ();
@@ -31,12 +32,16 @@ export default class CanvasInstance {
     private isRenderPending: boolean = false;
     private readonly MIN_POINT_DISTANCE: number = 3;
 
-    constructor(canvasEl: HTMLCanvasElement, container: HTMLDivElement) {
-        this.canvas = canvasEl;
-        this.container = container
-        this.ctx = this.canvas.getContext('2d')!;
+    private isPanning: boolean = false;
+    private lastMousePosition: Point | null = null;
 
-        this.renderer = new CanvasRenderer(this.ctx, this.container);
+    constructor(canvasEl: HTMLCanvasElement) {
+        this.canvas = canvasEl;
+        this.ctx = this.canvas.getContext('2d')!;
+        this.camera = new Camera();
+        this.resizeCanvas(window.innerWidth, window.innerHeight);
+        
+        this.renderer = new CanvasRenderer(this.ctx);
 
         this.currentStroke = {
             id: 0,
@@ -49,8 +54,21 @@ export default class CanvasInstance {
             throw new Error('2D context unavailable');
         }
 
-        this.renderer.drawBoardBoundaries(this.canvas);
-        this.visibleChunkRange = getVisibleChunkRange(this.container);
+        this.renderer.drawBoardBoundaries(this.camera, this.canvas);
+        this.visibleChunkRange = getVisibleChunkRange(this.camera, this.canvas);
+    }
+
+    resizeCanvas(w: number, h: number) {
+        this.canvas.width = w;
+        this.canvas.height = h;
+
+        console.log({
+            innerWidth: window.innerWidth,
+            innerHeight: window.innerHeight,
+            canvasWidth: this.canvas.width,
+            canvasHeight: this.canvas.height,
+            rect: this.canvas.getBoundingClientRect()
+        });
     }
 
     validPoint(x: number, y: number) : boolean {
@@ -79,27 +97,54 @@ export default class CanvasInstance {
 
     }
 
-    mouseDown(x: number, y: number) : void {
+    mouseDown(x: number, y: number, button: number) : void {
+        
+        
+        if (button === 1) {
+            this.isPanning = true;
+            this.lastMousePosition = { x, y };
+            return;
+        }
+        
+        const worldPoints = this.camera.convertScreenToWorld({x, y});
+
         this.currentStroke = createNewStroke(
             this.nextStrokeId++,
             this.currentStrokeClr,
-            x, y
+            worldPoints.x, 
+            worldPoints.y
         )
 
         // sets lastRenderedIndex
         this.renderer.beginStroke(this.currentStroke.points.length - 1);
     }
 
-
+    applyContextTransform() {
+        this.ctx.setTransform(
+            this.camera.zoom,
+            0,
+            0,
+            this.camera.zoom,
+            -this.camera.x * this.camera.zoom,
+            -this.camera.y * this.camera.zoom
+        );
+    }
     // assumes mouse button is already pressed down
     mouseMove(x: number, y: number) : void {
-        if (this.validPoint(x, y)) {
-            this.currentStroke.points.push({x, y});
+        // will only run if isPanning is true
+        this.screenPan(x, y);
+
+        const worldPoints = this.camera.convertScreenToWorld({x, y});
+
+        if (this.validPoint(worldPoints.x, worldPoints.y)) {
+            this.currentStroke.points.push(worldPoints);
         }
 
         if (!this.isRenderPending) {
             this.isRenderPending = true;
-            
+
+            this.applyContextTransform();
+
             requestAnimationFrame(() => {
                 this.renderer.renderStroke(this.currentStroke);
                 this.isRenderPending = false;
@@ -107,9 +152,16 @@ export default class CanvasInstance {
         }
     }
 
-    mouseUp(x: number, y: number): void {
+    mouseUp(x: number, y: number, button: number): void {
+        if (button === 1) {
+            this.isPanning = false;
+            this.lastMousePosition = null;
+            return;
+        }
         // at this point just render whatever's in the currentStroke array.
-        this.currentStroke.points.push({x, y});
+        // Note: i dont think we need to apply context transform here again. But if somehow the rendering looks weird then something might've changed the transform properties. Do check that just in case
+        const worldPoints = this.camera.convertScreenToWorld({x, y});
+        this.currentStroke.points.push(worldPoints);
         this.renderer.renderStroke(this.currentStroke);
         
         // making a copy
@@ -128,7 +180,7 @@ export default class CanvasInstance {
                 this.deleteStroke(id);
             }
 
-            this.history = this.history.splice(0, this.historyIndex + 1);
+            this.history.splice(this.historyIndex + 1);
         }
         
         this.history.push(finishedStroke.id);
@@ -156,14 +208,37 @@ export default class CanvasInstance {
         this.fullBoardRender();
     }
 
-    handleScroll() {
-        const newRange: VisibleChunkRange = getVisibleChunkRange(this.container);
-        if (this.sameChunkRange(this.visibleChunkRange, newRange)) {
-            return; // don't need to re render at all.
-        } 
+    screenPan(currentX: number, currentY: number) {
+        if (this.isPanning && this.lastMousePosition) {
+            const dx = currentX - this.lastMousePosition.x;
+            const dy = currentY - this.lastMousePosition.y;
+            
+            this.camera.x -= dx / this.camera.zoom;
+            this.camera.y -= dy / this.camera.zoom;
 
-        this.visibleChunkRange = newRange;
-        this.fullBoardRender(); // dont need to rerender boundary lines. Trivial optimization.
+            this.lastMousePosition = { x: currentX, y: currentY };
+            this.applyContextTransform();
+            this.fullBoardRender();
+        }
+    }
+    screenZoom(x: number, y: number, zoomFactor: number) {
+        this.camera.zoomAt(x, y, zoomFactor);
+        console.log("Zoom: ", this.camera.zoom);
+
+        console.log({
+            innerWidth: window.innerWidth,
+            innerHeight: window.innerHeight,
+            devicePixelRatio: window.devicePixelRatio,
+            rect: this.canvas.getBoundingClientRect(),
+            computed: {
+                width: getComputedStyle(this.canvas).width,
+                height: getComputedStyle(this.canvas).height,
+                transform: getComputedStyle(this.canvas).transform,
+                zoom: getComputedStyle(this.canvas).zoom,
+            }
+        });
+
+        this.fullBoardRender();
     }
 
     handleUndo() {
@@ -216,15 +291,18 @@ export default class CanvasInstance {
     }
 
     fullBoardRender() {
-        const activeStrokeIds = this.getActiveStrokeIds();
+        const activeStrokeIds = this.getActiveHistoryStrokes();
 
         // clear out old canvas
         this.renderer.clear(this.canvas);
-        this.renderer.drawBoardBoundaries(this.canvas);
-        this.renderer.reRenderStrokes(this.spatialIndex, this.strokes, activeStrokeIds);
+
+        this.applyContextTransform();
+
+        this.renderer.drawBoardBoundaries(this.camera, this.canvas);
+        this.renderer.reRenderStrokes(this.spatialIndex,this.strokes, getVisibleChunkRange(this.camera, this.canvas), activeStrokeIds);
     }
 
-    getActiveStrokeIds(): number[] {
+    getActiveHistoryStrokes(): number[] {
         return this.history.slice(0, this.historyIndex + 1);
     }
 

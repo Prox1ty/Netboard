@@ -1,3 +1,4 @@
+import Camera from './Camera';
 import { ChunkCoordinate } from './Canvas';
 import { CHUNK_HEIGHT, CHUNK_WIDTH } from "./constants";
 import { getVisibleChunkRange } from "./SpatialLogic";
@@ -5,16 +6,15 @@ import { VisibleChunkRange, Stroke, Point } from "./types";
 
 export default class CanvasRenderer {
     private ctx;
-    private container;
     private lastRenderedIndex: number;
 
-    constructor(context: CanvasRenderingContext2D, container: HTMLDivElement) {
+    constructor(context: CanvasRenderingContext2D) {
         this.ctx = context;
-        this.container = container;
         this.lastRenderedIndex = 0; // start from the first index.
     }
 
     clear(canvas: HTMLCanvasElement) {
+        this.ctx.resetTransform();
         this.ctx.clearRect(
             0,
             0,
@@ -53,22 +53,29 @@ export default class CanvasRenderer {
 
     }
 
-    drawBoardBoundaries(canvas: HTMLCanvasElement) {
-        const width: number = canvas.width;
-        const height: number = canvas.height;
-        this.ctx.strokeStyle = "gray";
+    drawBoardBoundaries(
+    camera: Camera,
+    canvas: HTMLCanvasElement
+    ) {
+        const left = camera.x;
+        const top = camera.y;
+        const right = left + canvas.width / camera.zoom;
+        const bottom = top + canvas.height / camera.zoom;
+
+        const startX = Math.floor(left / CHUNK_WIDTH) * CHUNK_WIDTH;
+        const startY = Math.floor(top / CHUNK_HEIGHT) * CHUNK_HEIGHT;
+        
+        this.ctx.strokeStyle= "gray";
         this.ctx.beginPath();
 
-        // vertical boundaries
-        for (let x = CHUNK_WIDTH; x < width; x += CHUNK_WIDTH) {
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, height);
+        for (let x = startX; x <= right; x += CHUNK_WIDTH) {
+            this.ctx.moveTo(x, top);
+            this.ctx.lineTo(x, bottom);
         }
 
-        // horizontal boundaries
-        for (let y = CHUNK_HEIGHT; y < height; y += CHUNK_HEIGHT) {
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(width, y);
+        for (let y = startY; y <= bottom; y += CHUNK_HEIGHT) {
+            this.ctx.moveTo(left, y);
+            this.ctx.lineTo(right, y);
         }
 
         this.ctx.stroke();
@@ -77,12 +84,15 @@ export default class CanvasRenderer {
     reRenderStrokes(spatialIndex: Map<ChunkCoordinate, 
         Set<number>>, 
         strokes: Map<number, Stroke>,
-        activeStrokeIds: number[]
+        visibleChunkRange: VisibleChunkRange,
+        activeStrokeIds: number[],
     ): void {
 
-        const visibleChunkRange: VisibleChunkRange = getVisibleChunkRange(this.container);
+        
 
+        // minor performance optimization
         const renderedStrokes = new Set<number>();
+        // currently active strokes in history
         const activeIds = new Set(activeStrokeIds);
 
         const {minX, minY, maxX, maxY} = visibleChunkRange;

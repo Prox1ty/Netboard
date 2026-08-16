@@ -1,6 +1,7 @@
 import type { VisibleChunkRange } from "./types";
 import type { ChunkCoordinate } from "./Canvas";
 import { CHUNK_HEIGHT, CHUNK_WIDTH } from "./constants";
+import Camera from "./Camera";
 
 function getChunkCoordinate(x: number, y: number): [number, number] {
     return [
@@ -9,11 +10,11 @@ function getChunkCoordinate(x: number, y: number): [number, number] {
     ];
 }
 
-function getVisibleChunkRange(container: HTMLDivElement): VisibleChunkRange {
-    const top = container.scrollTop;
-    const left = container.scrollLeft;
-    const right = left + container.clientWidth;
-    const bottom = top + container.clientHeight;
+function getVisibleChunkRange(camera: Camera, canvas: HTMLCanvasElement): VisibleChunkRange {
+    const top = camera.y;
+    const left = camera.x;
+    const right = left + canvas.width / camera.zoom;
+    const bottom = top + canvas.height / camera.zoom;
             
 
     const [minX, minY] : number[] = getChunkCoordinate(left, top);
@@ -34,5 +35,8 @@ function getChunkKey(x: number, y: number): ChunkCoordinate {
 
     return `${chunkX},${chunkY}`;
 }
+
+
+
 
 export { getChunkCoordinate,  getVisibleChunkRange,  getChunkKey}

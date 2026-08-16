@@ -1,1 +1,17 @@
-node_modules
+**/node_modules/
+
+**/dist/
+
+**/.env
+**/.env.*
+
+# Allow exmaple envs
+!**/.env.exmaple
+
+# Logs
+
+**/*.Logs
+
+# OS
+.DS_Store
+Thumbs.db
