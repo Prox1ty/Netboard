@@ -1,10 +1,15 @@
-import React, {useEffect, useRef, useState} from 'react'
+import React, {useEffect, useRef} from 'react'
 import CanvasInstance from '../../../engine/src/Canvas';
+import ToolBar from '../components/ToolBar';
+import SideBar from '../components/SideBar';
+import { useTool, type Tool } from '../context/ToolContext';
+import { toolHandlers } from '../middleware/opTypes';
 
 function WhiteBoard() {
 
     const canvasElementRef = useRef<HTMLCanvasElement>(null);
     const engineRef = useRef<CanvasInstance | null>(null);
+    const { selected, color } = useTool();
 
     useEffect(() => {
         engineRef.current = new CanvasInstance(canvasElementRef.current!);
@@ -24,17 +29,29 @@ function WhiteBoard() {
 
     const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) =>  {
         const {x, y} = getCanvasPosition(event);
-        engineRef.current?.mouseDown(x, y, event.button);
+        const selectedTool: Tool = selected;
+
+        if (engineRef.current) {
+            toolHandlers[selectedTool].mouseDown(engineRef?.current, {x, y}, event.button)   
+        }
     }
 
     const handleMouseUp = (event: React.MouseEvent<HTMLCanvasElement>) => {
         const {x, y} = getCanvasPosition(event);
-        engineRef.current?.mouseUp(x, y, event.button);
+        const selectedTool: Tool = selected;
+
+        if (engineRef.current) {
+            toolHandlers[selectedTool].mouseUp(engineRef?.current, {x, y}, event.button)   
+        }
     }
 
     const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
         const {x, y} = getCanvasPosition(event);
-        engineRef.current?.mouseMove(x, y);
+        const selectedTool: Tool = selected;
+
+        if (engineRef.current) {
+            toolHandlers[selectedTool].mouseMove(engineRef?.current, {x, y}, event.button) 
+        }
     }
 
     const handleWheel = (event: any) => {
@@ -48,30 +65,40 @@ function WhiteBoard() {
     }
 
   return (
-    <canvas 
-        className= 'bg-[var(--bg)] whiteboard-background'
-        ref={canvasElementRef}
-        tabIndex={0}
+    <>
+        <canvas 
+            className= 'bg-[var(--bg)] whiteboard-background'
+            ref={canvasElementRef}
+            tabIndex={0}
 
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onKeyDown={(e) => {
-        const isModifierPressed = e.ctrlKey || e.metaKey;
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onKeyDown={(e) => {
+            const isModifierPressed = e.ctrlKey || e.metaKey;
 
-        if (isModifierPressed && e.code === 'KeyZ') {
-            e.preventDefault(); 
-            console.log("Undo fired");
-            engineRef.current?.undo();
-        } 
-        else if (isModifierPressed && e.code === 'KeyY') {
-            e.preventDefault();
-            console.log("Redo fired");
-            engineRef.current?.redo();
-        }
-        }}
-        onWheel={handleWheel}
-    ></canvas>
+            if (isModifierPressed && e.code === 'KeyZ') {
+                e.preventDefault(); 
+                console.log("Undo fired");
+                engineRef.current?.undo();
+            } 
+            else if (isModifierPressed && e.code === 'KeyY') {
+                e.preventDefault();
+                console.log("Redo fired");
+                engineRef.current?.redo();
+            }
+            }}
+            onWheel={handleWheel}
+        ></canvas>
+        <div className='flex flex-col items-center jusify-evenly w-7 gap-5'>
+            <SideBar />
+        </div>
+        <div className="flex justify-center absolute bottom-2.5 mx-auto">
+            <div>
+                <ToolBar />
+            </div>
+        </div>
+    </>
   )
 }
 
