@@ -1,5 +1,5 @@
 import React from "react";
-import { BrushTool, PanTool } from "./Tools";
+import { BrushTool, SelectTool } from "./Tools";
 
 function ToolBar() {
   return (
@@ -18,7 +18,7 @@ function ToolBar() {
     m-4 
     z-10"
     >
-      <PanTool />
+      <SelectTool />
       <BrushTool />
     </li>
   );

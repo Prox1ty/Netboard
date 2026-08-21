@@ -1,4 +1,4 @@
 import BrushTool from "./BrushTool";
-import PanTool from "./PanTool";
+import SelectTool from "./selectTool";
 
-export { BrushTool, PanTool }
+export { BrushTool, SelectTool }

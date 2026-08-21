@@ -2,13 +2,13 @@ import React from 'react'
 import { LuHand } from 'react-icons/lu'
 import { useTool } from '../../context/ToolContext'
 
-function PanTool() {
+function SelectTool() {
     const {selected, setSelected} = useTool();
 
-    const isCurrentlySelected = selected === 'pan';
+    const isCurrentlySelected = selected === 'select';
 
     const handleClick = () => {
-      setSelected('pan'); 
+      setSelected('select'); 
     }
     
   return (
@@ -24,4 +24,4 @@ function PanTool() {
   )
 }
 
-export default PanTool
+export default SelectTool
