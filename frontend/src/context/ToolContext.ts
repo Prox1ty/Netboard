@@ -1,11 +1,7 @@
 import { createContext, useContext } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import type { Tool } from "../../../engine/src/types/tool";
 
-export type Tool = 
-| "brush"
-| "rectangle"
-| "circle" 
-| "select";
 
 interface ToolContextType {
     selected: Tool;

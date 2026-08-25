@@ -3,37 +3,41 @@ import Stroke from "./types/Stroke";
 import CanvasRenderer from "./Renderer"
 import Camera from "./Camera";
 import { VisibleChunkRange } from "./types";
-import {CHUNK_WIDTH, CHUNK_HEIGHT} from "./constants/index"
+import { type Tool } from "./types/tool";
+import { toolHandlers, type ToolHandler } from "./types/opTypes";
 
 import { getChunkCoordinate, getChunkKey, getVisibleChunkRange } from "./SpatialLogic";
-import { createNewStroke } from "./operations/strokeOps";
 
 export type ChunkCoordinate = `${number},${number}`;
 
 
 export default class CanvasInstance {
-    private canvas: HTMLCanvasElement;
-    private renderer: CanvasRenderer;
-    private ctx: CanvasRenderingContext2D;
-    private camera: Camera;
+    canvas: HTMLCanvasElement;
+    renderer: CanvasRenderer;
+    ctx: CanvasRenderingContext2D;
+    camera: Camera;
 
-    private spatialIndex = new Map<ChunkCoordinate, Set<number>>();
-    private strokes = new Map<number, Stroke> ();
-    private history: number[] = [];
-    private historyIndex: number = -1;
-    private nextStrokeId = 1;
+    spatialIndex = new Map<ChunkCoordinate, Set<number>>();
+    strokes = new Map<number, Stroke> ();
 
-    private currentStroke: Stroke;
-    public currentStrokeClr = "red";
+    operationHistory: Tool[] = [];
+    operationHistoryIndex: number = -1;
 
-    private visibleChunkRange: VisibleChunkRange;
+    strokeHistory: number[] = [];
+    strokeHistoryIndex: number = -1;
+    nextStrokeId = 1;
+
+    currentStroke: Stroke;
+    currentStrokeClr = "red";
+
+    visibleChunkRange: VisibleChunkRange;
 
 
-    private isRenderPending: boolean = false;
-    private readonly MIN_POINT_DISTANCE: number = 3;
+    isRenderPending: boolean = false;
+    readonly MIN_POINT_DISTANCE: number = 3;
 
-    private isPanning: boolean = false;
-    private lastMousePosition: Point | null = null;
+    isPanning: boolean = false;
+    lastMousePosition: Point | null = null;
 
     constructor(canvasEl: HTMLCanvasElement) {
         this.canvas = canvasEl;
@@ -97,7 +101,7 @@ export default class CanvasInstance {
 
     }
 
-    mouseDown(x: number, y: number, button: number) : void {
+    mouseDown(x: number, y: number, button: number, tool: Tool) : void {
         
         
         if (button === 1) {
@@ -106,17 +110,9 @@ export default class CanvasInstance {
             return;
         }
         
-        const worldPoints = this.camera.convertScreenToWorld({x, y});
+        
 
-        this.currentStroke = createNewStroke(
-            this.nextStrokeId++,
-            this.currentStrokeClr,
-            worldPoints.x, 
-            worldPoints.y
-        )
-
-        // sets lastRenderedIndex
-        this.renderer.beginStroke(this.currentStroke.points.length - 1);
+        toolHandlers[tool].mouseDown(this, {x, y});
     }
 
     applyContextTransform() {
@@ -130,82 +126,40 @@ export default class CanvasInstance {
         );
     }
     // assumes mouse button is already pressed down
-    mouseMove(x: number, y: number) : void {
+    mouseMove(x: number, y: number, tool: Tool) : void {
         // will only run if isPanning is true
         this.screenPan(x, y);
 
-        const worldPoints = this.camera.convertScreenToWorld({x, y});
-
-        if (this.validPoint(worldPoints.x, worldPoints.y)) {
-            this.currentStroke.points.push(worldPoints);
-        }
-
-        if (!this.isRenderPending) {
-            this.isRenderPending = true;
-
-            this.applyContextTransform();
-
-            requestAnimationFrame(() => {
-                this.renderer.renderStroke(this.currentStroke);
-                this.isRenderPending = false;
-            }) 
-        }
+        toolHandlers[tool].mouseMove(this, {x, y});
     }
 
-    mouseUp(x: number, y: number, button: number): void {
+    mouseUp(x: number, y: number, button: number, tool: Tool): void {
         if (button === 1) {
             this.isPanning = false;
             this.lastMousePosition = null;
             return;
         }
-        // at this point just render whatever's in the currentStroke array.
-        // Note: i dont think we need to apply context transform here again. But if somehow the rendering looks weird then something might've changed the transform properties. Do check that just in case
-        const worldPoints = this.camera.convertScreenToWorld({x, y});
-        this.currentStroke.points.push(worldPoints);
-        this.renderer.renderStroke(this.currentStroke);
-        
-        // making a copy
-        const finishedStroke: Stroke = {
-            ...this.currentStroke,
-            points: [...this.currentStroke.points]
+
+        toolHandlers[tool].mouseUp(this, {x, y});
+        if (this.operationHistoryIndex < this.operationHistory.length - 1) { // if a mouseup is registered at a non-latest operation 
+            // again id deletion will be managed by the toolHandler function.
+            this.reWriteOperationHistory();
         }
-        this.strokes.set(finishedStroke.id, finishedStroke);
-        this.storeStrokeInChunk(finishedStroke);
-
-        // if the current history pointer is not at the latest element and we add a new element, delete existing redundant strokes since history is going to be overwritten anyway
-        if (this.historyIndex < this.history.length - 1) {
-            const overwrittenIds = this.history.slice(this.historyIndex + 1, this.history.length);
-
-            for (const id of overwrittenIds) {
-                this.deleteStroke(id);
-            }
-
-            this.history.splice(this.historyIndex + 1);
-        }
-        
-        this.history.push(finishedStroke.id);
-        this.historyIndex++;
-
-        this.currentStroke.points = [];
-        this.isRenderPending = false;
-
-        this.renderer.endStroke();
-
-        console.log(this.spatialIndex);
     }
 
     undo() {
-        if (this.historyIndex < 0) return;
-
-        this.historyIndex--;
-        this.fullBoardRender();
+        if (this.operationHistoryIndex < 0) return;
+        const lastTool: Tool = this.operationHistory[this.operationHistoryIndex]!;
+        toolHandlers[lastTool].undo(this);
+        this.operationHistoryIndex--;
     }
 
     redo() {
-        if (this.historyIndex >= this.history.length - 1) return;
+        if (this.operationHistoryIndex >= this.operationHistory.length - 1) return;
 
-        this.historyIndex++;
-        this.fullBoardRender();
+        const lastTool: Tool = this.operationHistory[this.operationHistoryIndex]!;
+        toolHandlers[lastTool].redo(this);
+        this.operationHistoryIndex++;
     }
 
     screenPan(currentX: number, currentY: number) {
@@ -291,7 +245,7 @@ export default class CanvasInstance {
     }
 
     fullBoardRender() {
-        const activeStrokeIds = this.getActiveHistoryStrokes();
+        const activeStrokeIds = this.getActiveStrokeHistoryStrokes();
 
         // clear out old canvas
         this.renderer.clear(this.canvas);
@@ -302,8 +256,8 @@ export default class CanvasInstance {
         this.renderer.reRenderStrokes(this.spatialIndex,this.strokes, getVisibleChunkRange(this.camera, this.canvas), activeStrokeIds);
     }
 
-    getActiveHistoryStrokes(): number[] {
-        return this.history.slice(0, this.historyIndex + 1);
+    getActiveStrokeHistoryStrokes(): number[] {
+        return this.strokeHistory.slice(0, this.strokeHistoryIndex + 1);
     }
 
     deleteStroke(id: number) {
@@ -312,5 +266,10 @@ export default class CanvasInstance {
         for (const [chunk, strokeIds] of this.spatialIndex) {
             strokeIds.delete(id);
         }
+    }
+
+    reWriteOperationHistory() {
+        // REMOVE OVERWRITTEN OPERATIONS. THEIR IDs WILL BE REMOVED IN THEIR RESPECTIVE MOUSEUP OPERATION
+        this.operationHistory.splice(this.operationHistoryIndex + 1);
     }
 }

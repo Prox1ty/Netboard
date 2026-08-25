@@ -1,6 +1,6 @@
 import React, { useState, type ReactNode } from 'react'
 import ToolContext from './ToolContext'
-import { type Tool } from './ToolContext';
+import { type Tool } from '../../../engine/src/types/tool';
 
 interface ToolContextProviderProps {
   children: ReactNode;

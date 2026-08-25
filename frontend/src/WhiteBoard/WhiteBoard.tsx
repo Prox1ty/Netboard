@@ -2,8 +2,9 @@ import React, {useEffect, useRef} from 'react'
 import CanvasInstance from '../../../engine/src/Canvas';
 import ToolBar from '../components/ToolBar';
 import SideBar from '../components/SideBar';
-import { useTool, type Tool } from '../context/ToolContext';
-import { toolHandlers } from '../middleware/opTypes';
+import { type Tool } from '../../../engine/src/types/tool';
+import { useTool} from '../context/ToolContext';
+import { toolHandlers } from '../../../engine/src/types/opTypes';
 
 function WhiteBoard() {
 
@@ -32,7 +33,7 @@ function WhiteBoard() {
         const selectedTool: Tool = selected;
 
         if (engineRef.current) {
-            toolHandlers[selectedTool].mouseDown(engineRef?.current, {x, y}, event.button)   
+            engineRef?.current.mouseDown(x, y, event.button, selectedTool);
         }
     }
 
@@ -41,7 +42,7 @@ function WhiteBoard() {
         const selectedTool: Tool = selected;
 
         if (engineRef.current) {
-            toolHandlers[selectedTool].mouseUp(engineRef?.current, {x, y}, event.button)   
+            engineRef?.current.mouseUp(x, y, event.button, selectedTool);
         }
     }
 
@@ -50,7 +51,7 @@ function WhiteBoard() {
         const selectedTool: Tool = selected;
 
         if (engineRef.current) {
-            toolHandlers[selectedTool].mouseMove(engineRef?.current, {x, y}, event.button) 
+            engineRef?.current.mouseMove(x, y, selectedTool);
         }
     }
 
