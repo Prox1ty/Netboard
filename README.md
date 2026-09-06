@@ -20,26 +20,9 @@ Netboard is a browser-based whiteboard prototype. The current implementation pro
 ├── engine/
 │   ├── src/
 │   │   ├── constants/
-│   │   │   └── index.ts             # Canvas and zoom constants
 │   │   ├── operations/
-│   │   │   ├── opDefs/
-│   │   │   │   ├── brushOps.ts       # Brush drawing and history operations
-│   │   │   │   ├── circleOps.ts      # Circle operation placeholder
-│   │   │   │   ├── rectangleOps.ts   # Rectangle operation placeholder
-│   │   │   │   ├── selectOps.ts      # Selection operation placeholder
-│   │   │   │   └── index.ts
-│   │   │   └── strokeOps.ts
+│   │   │   └── opDefs/
 │   │   ├── types/
-│   │   │   ├── Point.ts
-│   │   │   ├── Stroke.ts
-│   │   │   ├── VisibleChunkRange.ts
-│   │   │   ├── opTypes.ts            # Tool handler types and registry
-│   │   │   ├── tool.ts               # Available tool names
-│   │   │   └── index.ts
-│   │   ├── Camera.ts                 # Pan, zoom, and coordinate conversion
-│   │   ├── Canvas.ts                 # Canvas state and input handling
-│   │   ├── Renderer.ts               # Canvas drawing and rerendering
-│   │   └── SpatialLogic.ts           # Chunk indexing and visibility logic
 │   └── tsconfig.json
 │
 ├── frontend/
@@ -47,21 +30,9 @@ Netboard is a browser-based whiteboard prototype. The current implementation pro
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── sidebar_components/
-│   │   │   │   └── ColorPalette.tsx  # Color selector (in development)
-│   │   │   ├── Tools/
-│   │   │   │   ├── BrushTool.tsx
-│   │   │   │   ├── SelectTool.tsx
-│   │   │   │   └── index.ts
-│   │   │   ├── SideBar.tsx
-│   │   │   └── ToolBar.tsx
+│   │   │   └── Tools/
 │   │   ├── context/
-│   │   │   ├── ToolContext.ts        # Tool and color context definition
-│   │   │   └── ToolContextProvider.tsx
-│   │   ├── WhiteBoard/
-│   │   │   └── WhiteBoard.tsx         # Canvas UI and event forwarding
-│   │   ├── App.tsx
-│   │   ├── index.css
-│   │   └── main.tsx
+│   │   └── WhiteBoard/
 │   ├── index.html
 │   ├── package.json
 │   ├── vite.config.ts
@@ -72,9 +43,9 @@ Netboard is a browser-based whiteboard prototype. The current implementation pro
 └── tsconfig.json
 ```
 
-The `engine` directory contains the reusable canvas layer. `Canvas.ts` coordinates input, camera state, stroke storage, spatial indexing, and undo/redo history. `Renderer.ts` draws board boundaries and visible strokes, while `Camera.ts` handles panning, zooming, and coordinate conversion. Operation definitions provide the tool-specific mouse and history handlers.
+The `engine` directory contains the reusable canvas layer. Its source is organized into canvas modules, tool operations, shared types, and constants. Together, these modules handle input, camera state, stroke storage, rendering, spatial indexing, and undo/redo history.
 
-The `frontend` directory contains the React application. `WhiteBoard.tsx` owns the canvas element and connects browser events to the engine. The toolbar and sidebar provide the visible controls, while the tool context stores the selected tool and color state shared by those controls.
+The `frontend` directory contains the React application. Its source is organized into the whiteboard view, reusable UI components, tool controls, sidebar components, and context providers for shared tool state.
 
 ### Frontend
 
