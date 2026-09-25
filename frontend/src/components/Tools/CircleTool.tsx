@@ -1,27 +1,26 @@
-import React from 'react'
-import { LuMousePointer2 } from 'react-icons/lu'
+import { LuCircle } from 'react-icons/lu'
 import { useTool } from '../../context/ToolContext'
 
-function SelectTool() {
-    const {selected, setSelected} = useTool();
+function CircleTool() {
+  const { selected, setSelected } = useTool();
 
-    const isCurrentlySelected = selected === 'select';
+  const isCurrentlySelected = selected === 'circle';
 
-    const handleClick = () => {
-      setSelected('select'); 
-    }
-    
+  const handleClick = () => {
+    setSelected('circle');
+  }
+
   return (
     <li onClick={handleClick} className={`cursor-pointer ${isCurrentlySelected ? 'bg-selected' : ''} rounded-xl transition-all duration-300 ease-in-out`}>
-      <span 
+      <span
         className={`inline-block transition-transform duration-300 ease-in-out ${
           isCurrentlySelected ? 'scale-125' : 'scale-100'
         }`}
       >
-        <LuMousePointer2 size={isCurrentlySelected ? 30 : 24} />
-    </span>
+        <LuCircle size={isCurrentlySelected ? 30 : 24} />
+      </span>
     </li>
   )
 }
 
-export default SelectTool
+export default CircleTool;

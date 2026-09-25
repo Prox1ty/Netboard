@@ -7,6 +7,7 @@ import { type Tool } from "./types/tool";
 import { toolHandlers, type ToolHandler } from "./types/opTypes";
 
 import { getChunkCoordinate, getChunkKey, getVisibleChunkRange } from "./SpatialLogic";
+import { Circle, Rectangle, DrawingObject } from "./types/DrawingObject";
 
 export type ChunkCoordinate = `${number},${number}`;
 
@@ -18,17 +19,19 @@ export default class CanvasInstance {
     camera: Camera;
 
     spatialIndex = new Map<ChunkCoordinate, Set<number>>();
-    strokes = new Map<number, Stroke> ();
+    drawings = new Map<number, DrawingObject> ();
 
     operationHistory: Tool[] = [];
     operationHistoryIndex: number = -1;
 
     strokeHistory: number[] = [];
     strokeHistoryIndex: number = -1;
-    nextStrokeId = 1;
+    nextDrawingId = 1;
 
-    currentStroke: Stroke;
-    currentStrokeClr = "red";
+    currentStroke: Stroke; // for the brush tool
+    currentRect: Rectangle | null; 
+    currentCircle: Circle | null;
+    currentDrawingClr = "red";
 
     visibleChunkRange: VisibleChunkRange;
 
@@ -53,6 +56,8 @@ export default class CanvasInstance {
             color: "black",
             points: []
         }
+        this.currentRect = null;
+        this.currentCircle = null;
 
         if (!this.ctx) {
             throw new Error('2D context unavailable');
@@ -190,7 +195,7 @@ export default class CanvasInstance {
                 transform: getComputedStyle(this.canvas).transform,
                 zoom: getComputedStyle(this.canvas).zoom,
             }
-        });
+        }); // debugging for screen sizing issues
 
         this.fullBoardRender();
     }
@@ -203,31 +208,86 @@ export default class CanvasInstance {
         this.redo();
     }
 
-    storeStrokeInChunk(stroke: Stroke): void {
+    storeDrawingInChunk(drawing: DrawingObject): void {
         // we look at every point and check which chunk it belongs to. Then we store the whole stroke in that chunk. 
 
         const visited = new Set<ChunkCoordinate>(); // flag Set
+        switch (drawing.type) {
+            case "FreeHandDrawing": 
+                const points = drawing.points;
+                for (const point of points) {
 
-        for (const point of stroke.points) {
+                    const chunk = getChunkKey(
+                        point.x,
+                        point.y
+                    );
 
-            const chunk = getChunkKey(
-                point.x,
-                point.y
-            );
+                    // we don't need the same stroke multiple times in the same chunk.
+                    // the points loop is only here to check if the stroke spans multiple chunks
+                    
+                    if (visited.has(chunk))
+                        continue;
 
-            // we don't need the same stroke multiple times in the same chunk.
-			// the points loop is only here to check if the stroke spans multiple chunks
-            
-            if (visited.has(chunk))
-                continue;
+                    visited.add(chunk);
 
-            visited.add(chunk);
+                    if (!this.spatialIndex.has(chunk)) {
+                        this.spatialIndex.set(chunk, new Set);
+                    }
 
-            if (!this.spatialIndex.has(chunk)) {
-                this.spatialIndex.set(chunk, new Set);
-            }
+                    this.spatialIndex.get(chunk)!.add(drawing.id);
+                }
+                break;
+            case "Rectangle":
+                const chunkStart = getChunkKey(
+                    drawing.point.x,
+                    drawing.point.y
+                );
 
-            this.spatialIndex.get(chunk)!.add(stroke.id);
+                const chunkEnd = getChunkKey(
+                    drawing.width + drawing.point.x,
+                    drawing.height + drawing.point.y
+                );
+
+                if (!visited.has(chunkStart))
+                    visited.add(chunkStart);
+
+                visited.add(chunkEnd); // won't add if chunkStart and chunkEnd are the same
+                
+                if (!this.spatialIndex.has(chunkStart)) {
+                    this.spatialIndex.set(chunkStart, new Set);
+                }
+
+                if (!this.spatialIndex.has(chunkEnd)) {
+                    this.spatialIndex.set(chunkEnd, new Set);
+                }
+
+                this.spatialIndex.get(chunkStart)?.add(drawing.id);
+                if (chunkEnd != chunkStart) this.spatialIndex.get(chunkEnd)?.add(drawing.id);
+                break;
+            case "Circle":
+                const circleLeft = Math.min(drawing.start.x, drawing.end.x);
+                const circleTop = Math.min(drawing.start.y, drawing.end.y);
+                const circleMaxX = Math.max(drawing.start.x, drawing.end.x);
+                const circleMaxY = Math.max(drawing.start.y, drawing.end.y);
+                const circleChunks = [
+                    getChunkKey(circleLeft, circleTop),
+                    getChunkKey(circleMaxX, circleTop),
+                    getChunkKey(circleLeft, circleMaxY),
+                    getChunkKey(circleMaxX, circleMaxY),
+                ];
+
+                for (const chunk of circleChunks) {
+                    if (visited.has(chunk)) continue;
+
+                    visited.add(chunk);
+                    if (!this.spatialIndex.has(chunk)) {
+                        this.spatialIndex.set(chunk, new Set);
+                    }
+
+                    this.spatialIndex.get(chunk)!.add(drawing.id);
+                }
+                break;
+
         }
     }
 
@@ -253,7 +313,7 @@ export default class CanvasInstance {
         this.applyContextTransform();
 
         this.renderer.drawBoardBoundaries(this.camera, this.canvas);
-        this.renderer.reRenderStrokes(this.spatialIndex,this.strokes, getVisibleChunkRange(this.camera, this.canvas), activeStrokeIds);
+        this.renderer.reRenderStrokes(this.spatialIndex, this.drawings, getVisibleChunkRange(this.camera, this.canvas), activeStrokeIds);
     }
 
     getActiveStrokeHistoryStrokes(): number[] {
@@ -261,7 +321,7 @@ export default class CanvasInstance {
     }
 
     deleteStroke(id: number) {
-        this.strokes.delete(id);
+        this.drawings.delete(id);
 
         for (const [chunk, strokeIds] of this.spatialIndex) {
             strokeIds.delete(id);

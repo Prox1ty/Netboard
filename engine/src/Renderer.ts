@@ -3,6 +3,24 @@ import { ChunkCoordinate } from './Canvas';
 import { CHUNK_HEIGHT, CHUNK_WIDTH } from "./constants";
 import { getVisibleChunkRange } from "./SpatialLogic";
 import { VisibleChunkRange, Stroke, Point } from "./types";
+import { Circle, FreeHandDrawing, Rectangle } from './types/DrawingObject';
+import { DrawingObject } from './types/DrawingObject/DrawingObject';
+
+function throttle<T extends (...args: any[]) => void>(
+    func: T, 
+    limit: number
+): (...args: Parameters<T>) => void {
+    let lastCall = 0;
+
+    return function(this: any, ...args: Parameters<T>): void {
+    const now = Date.now();
+
+    if (now - lastCall >= limit) {
+        lastCall = now;
+        func.apply(this, args);
+    }
+    };
+}
 
 export default class CanvasRenderer {
     private ctx;
@@ -83,7 +101,7 @@ export default class CanvasRenderer {
 
     reRenderStrokes(spatialIndex: Map<ChunkCoordinate, 
         Set<number>>, 
-        strokes: Map<number, Stroke>,
+        drawings: Map<number, DrawingObject>,
         visibleChunkRange: VisibleChunkRange,
         activeStrokeIds: number[],
     ): void {
@@ -91,7 +109,7 @@ export default class CanvasRenderer {
         
 
         // minor performance optimization
-        const renderedStrokes = new Set<number>();
+        const renderedDrawings = new Set<number>();
         // currently active strokes in history
         const activeIds = new Set(activeStrokeIds);
 
@@ -102,41 +120,39 @@ export default class CanvasRenderer {
                 console.log(`Rendering chunk (${i},${j})`); 
 
                 if (currentChunk) {
-                    const strokeIds = spatialIndex.get(currentChunk);
+                     const drawingIds = spatialIndex.get(currentChunk);
 
-                    if (!strokeIds) continue;
+                    if (!drawingIds) continue;
 
-                    for (const id of strokeIds) {
+                    for (const id of drawingIds) {
                         // skip if the stroke isn't active
                         if (!activeIds.has(id)) {
                             continue;
                         }
 
                         // prevent duplicate rendering
-                        if (renderedStrokes.has(id)) {
+                        if (renderedDrawings.has(id)) {
                             continue;
                         }
 
-                        const stroke = strokes.get(id);
-                        if (!stroke) continue;
+                        const drawing = drawings.get(id);
+                        if (!drawing) continue;
 
-                        renderedStrokes.add(id);
+                        renderedDrawings.add(id);
+                        
+                        switch(drawing.type) {
 
-                        this.ctx.strokeStyle = stroke.color
-                        // since its been pushed to the strokes array, we're certain it has some size
-                        // each stroke consists of points. We're now gonna render all of the relevant points on the screen
-                        if (!stroke.points) continue;
-
-                        const firstPoint: Point = stroke.points[0]!;
-
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(firstPoint.x, firstPoint.y);
-
-                        for (let point of stroke.points) {
-                            this.ctx.lineTo(point.x, point.y);
+                            case "FreeHandDrawing":
+                                this.renderFreeHandDrawing(drawing);
+                                break;
+                            case "Rectangle":
+                                this.renderRect(drawing);
+                                break;
+                            case "Circle":
+                                this.renderCircle(drawing);
+                                break;
                         }
-
-                        this.ctx.stroke();
+                        
                     }
                     
                 }
@@ -145,6 +161,61 @@ export default class CanvasRenderer {
         }
     }
 
-    
+    renderFreeHandDrawing(drawing: FreeHandDrawing) {
+        this.ctx.strokeStyle = drawing.color;
+        // since its been pushed to the strokes array, we're certain it has some size
+        // each stroke consists of points. We're now gonna render all of the relevant points on the screen
+        if (!drawing?.points) return;
+
+        const firstPoint: Point = drawing?.points[0]!;
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(firstPoint.x, firstPoint.y);
+
+        for (let point of drawing?.points) {
+            this.ctx.lineTo(point.x, point.y);
+        }
+
+        this.ctx.stroke();
+    }
+
+    renderRect(rectangle: Rectangle) {
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = rectangle.color;
+        
+        this.ctx.rect(
+            rectangle.point.x,
+            rectangle.point.y,
+            rectangle.width,
+            rectangle.height
+        );
+
+        this.ctx.stroke();
+    }
+
+    renderCircle(circle: Circle) {
+        const left = Math.min(circle.start.x, circle.end.x);
+        const top = Math.min(circle.start.y, circle.end.y);
+        const width = Math.abs(circle.end.x - circle.start.x);
+        const height = Math.abs(circle.end.y - circle.start.y);
+
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = circle.color;
+        this.ctx.ellipse(
+            left + width / 2,
+            top + height / 2,
+            width / 2,
+            height / 2,
+            0,
+            0,
+            Math.PI * 2
+        );
+        this.ctx.stroke();
+    }
+
+
+
+    throttledRender = throttle(this.renderRect, 10);
+    throttledCircleRender = throttle(this.renderCircle, 10);
 
 }
