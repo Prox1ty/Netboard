@@ -2,6 +2,12 @@
 
 Netboard is a browser-based whiteboard prototype. The current implementation provides a React and Vite interface backed by a TypeScript canvas engine. The backend contains an Express health endpoint and an initial Prisma/PostgreSQL schema.
 
+
+
+https://github.com/user-attachments/assets/bc7125c9-189c-408d-8b7a-e853a9579d0e
+
+
+
 ## Current Features
 
 - Draw freehand strokes with the brush tool.
@@ -98,3 +104,4 @@ Pending
 - Express
 - Prisma
 - PostgreSQL
+
