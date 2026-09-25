@@ -1,10 +1,9 @@
 import Camera from './Camera';
-import { ChunkCoordinate } from './Canvas';
+import type { ChunkCoordinate } from './Canvas';
 import { CHUNK_HEIGHT, CHUNK_WIDTH } from "./constants";
-import { getVisibleChunkRange } from "./SpatialLogic";
-import { VisibleChunkRange, Stroke, Point } from "./types";
-import { Circle, FreeHandDrawing, Rectangle } from './types/DrawingObject';
-import { DrawingObject } from './types/DrawingObject/DrawingObject';
+import type { VisibleChunkRange, Stroke, Point, Selection } from "./types";
+import type { Circle, FreeHandDrawing, Rectangle } from './types/DrawingObject';
+import type { DrawingObject } from './types/DrawingObject/DrawingObject';
 
 function throttle<T extends (...args: any[]) => void>(
     func: T, 
@@ -51,6 +50,7 @@ export default class CanvasRenderer {
 
     renderStroke(stroke: Stroke) {
         this.ctx.strokeStyle = stroke.color;
+        this.ctx.lineWidth = stroke.thickness ?? 1;
         if (stroke.points.length >= 1) {
             // add to respective chunk coordinates
             // optimizing for line rendering
@@ -99,8 +99,8 @@ export default class CanvasRenderer {
         this.ctx.stroke();
     }
 
-    reRenderStrokes(spatialIndex: Map<ChunkCoordinate, 
-        Set<number>>, 
+    reRenderStrokes(spatialIndex: Map<ChunkCoordinate, Set<number>>, 
+        selectedDrawings: Set<number>,
         drawings: Map<number, DrawingObject>,
         visibleChunkRange: VisibleChunkRange,
         activeStrokeIds: number[],
@@ -138,20 +138,26 @@ export default class CanvasRenderer {
                         const drawing = drawings.get(id);
                         if (!drawing) continue;
 
-                        renderedDrawings.add(id);
-                        
+                        renderedDrawings.add(id); 
+
+                        const isSelected = selectedDrawings.has(id);
                         switch(drawing.type) {
 
                             case "FreeHandDrawing":
                                 this.renderFreeHandDrawing(drawing);
+                                if (isSelected) this.renderFreeHandDrawingOutline(drawing);
                                 break;
+
                             case "Rectangle":
                                 this.renderRect(drawing);
+                                if (isSelected) this.renderRectOutline(drawing);
                                 break;
+
                             case "Circle":
-                                this.renderCircle(drawing);
+                                 this.renderCircle(drawing);
+                                if (isSelected) this.renderCircleOutline(drawing);
                                 break;
-                        }
+                        } 
                         
                     }
                     
@@ -182,6 +188,7 @@ export default class CanvasRenderer {
     renderRect(rectangle: Rectangle) {
         this.ctx.beginPath();
         this.ctx.strokeStyle = rectangle.color;
+        this.ctx.lineWidth = rectangle.thickness ?? 1;
         
         this.ctx.rect(
             rectangle.point.x,
@@ -201,6 +208,7 @@ export default class CanvasRenderer {
 
         this.ctx.beginPath();
         this.ctx.strokeStyle = circle.color;
+        this.ctx.lineWidth = circle.thickness ?? 1;
         this.ctx.ellipse(
             left + width / 2,
             top + height / 2,
@@ -213,9 +221,91 @@ export default class CanvasRenderer {
         this.ctx.stroke();
     }
 
+    renderSelect(select: Selection) {
+        this.ctx.fillStyle = 'rgba(128, 128, 128, 0.2)';
+        this.ctx.fillRect(
+            select.point.x,
+            select.point.y,
+            select.width,
+            select.height
+        );
+    }
 
+    // outline renders
+    renderFreeHandDrawingOutline(drawing: FreeHandDrawing) {
+        if (!drawing || drawing.points.length === 0) return;
+        const firstPoint = drawing.points[0]!;
+        let minX = firstPoint.x;
+        let maxX = firstPoint.x;
+        let minY = firstPoint.y;
+        let maxY = firstPoint.y;
 
-    throttledRender = throttle(this.renderRect, 10);
+        for (const point of drawing.points) {
+            minX = Math.min(minX, point.x);
+            maxX = Math.max(maxX, point.x);
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        }
+
+        this.ctx.beginPath();
+
+        this.ctx.strokeStyle = "rgba(0, 64, 177, 0.6)";
+        this.ctx.fillStyle = "rgba(128, 128, 128, 0.2)";
+        this.ctx.lineWidth = 2;
+
+        this.ctx.rect(
+            minX - 4,
+            minY - 4,
+            maxX - minX + 8,
+            maxY - minY + 8
+        );
+        this.ctx.fill();
+        this.ctx.stroke();
+    }
+
+    renderCircleOutline(circle: Circle) {
+        const left = Math.min(circle.start.x, circle.end.x);
+        const top = Math.min(circle.start.y, circle.end.y);
+        const right = Math.max(circle.start.x, circle.end.x);
+        const bottom = Math.max(circle.start.y, circle.end.y);
+
+        this.ctx.beginPath();
+
+        this.ctx.strokeStyle = "rgba(0, 64, 177, 0.6)";
+        this.ctx.fillStyle = "rgba(128, 128, 128, 0.2)";
+        this.ctx.lineWidth = 2;
+
+        this.ctx.rect(
+            left - 4,
+            top - 4,
+            right - left + 8,
+            bottom - top + 8
+        );
+
+        this.ctx.fill();
+        this.ctx.stroke();
+        
+    }
+
+    renderRectOutline(rectangle: Rectangle) {
+        this.ctx.beginPath();
+
+        this.ctx.strokeStyle = "rgba(0, 64, 177, 0.6)";
+        this.ctx.fillStyle = "rgba(128, 128, 128, 0.2)";
+        this.ctx.lineWidth = 2;
+
+        this.ctx.rect(
+            rectangle.point.x - 4,
+            rectangle.point.y - 4,
+            rectangle.width + 8,
+            rectangle.height + 8
+        );
+        this.ctx.fill();
+        this.ctx.stroke();
+    }
+
+    throttledRectangleRender = throttle(this.renderRect, 10);
     throttledCircleRender = throttle(this.renderCircle, 10);
+    throttledSelectRender = throttle(this.renderSelect, 10);
 
 }

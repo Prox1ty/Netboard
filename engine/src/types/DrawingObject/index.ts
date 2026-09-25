@@ -1,6 +1,6 @@
-import { Circle } from "./Circle";
-import { Rectangle } from "./Rectangle";
-import { FreeHandDrawing } from "./FreeHandDrawing";
-import { DrawingObject } from "./DrawingObject";
+import type { Circle } from "./Circle";
+import type { Rectangle } from "./Rectangle";
+import type { FreeHandDrawing } from "./FreeHandDrawing";
+import type { DrawingObject } from "./DrawingObject";
 
-export { Circle, Rectangle, FreeHandDrawing, DrawingObject }
+export type { Circle, Rectangle, FreeHandDrawing, DrawingObject }

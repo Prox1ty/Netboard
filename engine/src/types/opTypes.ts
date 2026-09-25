@@ -1,29 +1,29 @@
 import type CanvasInstance from "../Canvas";
 import { type Point } from ".";
 import { type Tool } from "./tool";
-import { brushTool, rectangleTool, circleTool, selectTool} from '../operations/opDefs'
+import { brushTool, rectangleTool, circleTool, selectTool, deleteTool} from '../operations/opDefs'
 
 export interface ToolHandler {
-    mouseDown(
+    mouseDown? (
         canvas: CanvasInstance,
         point: Point,
     ): void;
 
-    mouseMove(
+    mouseMove? (
         canvas: CanvasInstance,
         point: Point,
     ): void;
 
-    mouseUp(
+    mouseUp? (
         canvas: CanvasInstance,
         point: Point,
     ): void;
 
-    undo(
+    undo? (
         canvas: CanvasInstance
     ): void
 
-    redo(
+    redo? (
         canvas: CanvasInstance
     ): void
 }
@@ -33,5 +33,6 @@ export const toolHandlers: Record<Tool, ToolHandler> = {
     brush: brushTool,
     rectangle: rectangleTool, // right now this one and the ones below contain the same definition to be changed later :P
     circle: circleTool,
-    select: selectTool
+    select: selectTool,
+    delete: deleteTool
 }

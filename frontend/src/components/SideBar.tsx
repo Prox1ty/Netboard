@@ -1,28 +1,11 @@
-import React from 'react'
-import ColorPalette from './sidebar_components/ColorPalette'
+import ColorPalette from './sidebar_components/ColorPalette';
 
 function SideBar() {
   return (
-    <div className="flex 
-        flex-row 
-        justify-evenly 
-        items-center 
-        list-none 
-        py-3  
-        px-5 
-        gap-5 
-        bg-bg 
-        rounded-2xl 
-        shadow-black 
-        shadow-xs 
-        m-4 
-        z-10"
-    >
-        <ul className='list-none gap-5 '>
-            <ColorPalette />
-        </ul>
-    </div>
-  )
+    <aside className="fixed left-2 top-1/2 z-20 w-[60px] -translate-y-1/2 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-lg shadow-slate-300/50 backdrop-blur-sm">
+      <ColorPalette />
+    </aside>
+  );
 }
 
 export default SideBar

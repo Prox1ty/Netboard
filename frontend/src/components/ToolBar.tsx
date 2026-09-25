@@ -1,4 +1,3 @@
-import React from "react";
 import { BrushTool, CircleTool, RectangleTool, SelectTool } from "./Tools";
 
 function ToolBar() {

@@ -1,244 +1,144 @@
-import React, { useState, useRef, useEffect, useCallback, type ChangeEvent, type MouseEvent } from 'react';
-import { FaPalette, FaTimes } from 'react-icons/fa';
+import React, { useMemo, useState } from 'react';
+import { FaPalette, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import { useTool } from '../../context/ToolContext';
 
-interface RGB {
+interface RgbaState {
   r: number;
   g: number;
   b: number;
+  a: number;
 }
 
-// Helper: HSL to RGB
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
-  s /= 100;
-  l /= 100;
-  const k = (n: number) => (n + h / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
-}
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-// Helper: RGB to Hex
-function rgbToHex(r: number, g: number, b: number): string {
-  return (
-    '#' +
-    [r, g, b]
-      .map((x) => {
-        const hex = Math.max(0, Math.min(255, Number(x) || 0)).toString(16);
-        return hex.length === 1 ? '0' + hex : hex;
-      })
-      .join('')
-  );
-}
+const parseRgba = (value: string): RgbaState => {
+  const normalized = value.replace(/\s+/g, '');
+  const match = normalized.match(/^rgba?\((\d+),(\d+),(\d+)(?:,(\d*\.?\d+))?\)$/i);
 
-// Helper: Hex to RGB
-function hexToRgb(hex: string): [number, number, number] | null {
-  let cleaned = hex.replace(/^#/, '');
-  if (cleaned.length === 3) {
-    cleaned = cleaned.split('').map((c) => c + c).join('');
+  if (!match) {
+    return { r: 255, g: 0, b: 0, a: 1 };
   }
-  if (cleaned.length !== 6) return null;
-  const num = parseInt(cleaned, 16);
-  if (isNaN(num)) return null;
-  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
-}
+
+  const parsedAlpha = match[4] !== undefined ? Number(match[4]) : 1;
+
+  return {
+    r: clamp(Number(match[1]) || 0, 0, 255),
+    g: clamp(Number(match[2]) || 0, 0, 255),
+    b: clamp(Number(match[3]) || 0, 0, 255),
+    a: clamp(Number.isFinite(parsedAlpha) ? parsedAlpha : 1, 0, 1),
+  };
+};
+
+const toRgbaString = (value: RgbaState) =>
+  `rgba(${value.r}, ${value.g}, ${value.b}, ${value.a})`;
 
 export const ColorPalette: React.FC = () => {
-  const { color, setColor } = useTool();
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [rgb, setRgb] = useState<RGB>({ r: 0, g: 0, b: 0 });
-  const [hexInput, setHexInput] = useState<string>('#000000');
+  const { color, setColor, thickness, setThickness } = useTool();
+  const [isOpen, setIsOpen] = useState(false);
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const isDragging = useRef<boolean>(false);
+  const rgba = useMemo(() => parseRgba(color), [color]);
 
-  // Sync internal states when context color changes
-  useEffect(() => {
-    if (color) {
-      setHexInput(color);
-      const parsed = hexToRgb(color);
-      if (parsed) {
-        setRgb({ r: parsed[0], g: parsed[1], b: parsed[2] });
-      }
-    }
-  }, [color]);
-
-  // Draw the Color Wheel
-  useEffect(() => {
-    if (!isOpen || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const radius = canvas.width / 2;
-    const image = ctx.createImageData(canvas.width, canvas.height);
-    const data = image.data;
-
-    for (let x = -radius; x < radius; x++) {
-      for (let y = -radius; y < radius; y++) {
-        const distance = Math.sqrt(x * x + y * y);
-        const index = ((y + radius) * canvas.width + (x + radius)) * 4;
-
-        if (distance <= radius) {
-          let angle = Math.atan2(y, x) * (180 / Math.PI) + 90;
-          if (angle < 0) angle += 360;
-          const sat = (distance / radius) * 100;
-          const [r, g, b] = hslToRgb(angle, sat, 50);
-
-          data[index] = r;
-          data[index + 1] = g;
-          data[index + 2] = b;
-          data[index + 3] = 255;
-        } else {
-          data[index + 3] = 0;
-        }
-      }
-    }
-    ctx.putImageData(image, 0, 0);
-  }, [isOpen]);
-
-  // Pick color from canvas coordinates
-  const pickColor = useCallback(
-    (e: MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const x = Math.floor(e.clientX - rect.left);
-      const y = Math.floor(e.clientY - rect.top);
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const pixel = ctx.getImageData(x, y, 1, 1).data;
-      if (pixel[3] > 0) {
-        const newHex = rgbToHex(pixel[0], pixel[1], pixel[2]);
-        setRgb({ r: pixel[0], g: pixel[1], b: pixel[2] });
-        setHexInput(newHex);
-        setColor(newHex);
-      }
-    },
-    [setColor]
-  );
-
-  const handleRgbChange = (channel: keyof RGB, val: string) => {
-    const num = Math.max(0, Math.min(255, parseInt(val, 10) || 0));
-    const nextRgb = { ...rgb, [channel]: num };
-    setRgb(nextRgb);
-    const nextHex = rgbToHex(nextRgb.r, nextRgb.g, nextRgb.b);
-    setHexInput(nextHex);
-    setColor(nextHex);
+  const updateRgba = (next: RgbaState) => {
+    setColor(toRgbaString(next));
   };
 
-  const handleHexChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setHexInput(val);
-    const parsed = hexToRgb(val);
-    if (parsed) {
-      setRgb({ r: parsed[0], g: parsed[1], b: parsed[2] });
-      setColor(val.startsWith('#') ? val : `#${val}`);
-    }
+  const handleColorChange = (channel: keyof Omit<RgbaState, 'a'>, value: string) => {
+    const parsedValue = Number(value);
+    const next = { ...rgba, [channel]: clamp(Number.isFinite(parsedValue) ? parsedValue : 0, 0, 255) };
+    updateRgba(next);
+  };
+
+  const handleAlphaChange = (value: string) => {
+    const parsedValue = Number(value);
+    const next = { ...rgba, a: clamp(Number.isFinite(parsedValue) ? parsedValue : 1, 0, 1) };
+    updateRgba(next);
+  };
+
+  const handleThicknessChange = (nextValue: number) => {
+    setThickness(clamp(nextValue, 1, 15));
   };
 
   return (
-    <li className="relative list-none">
-      {/* Icon Trigger */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen((prev) => !prev);
-        }}
-        className="p-2 rounded hover:bg-gray-100 transition-colors"
-      >
-        <FaPalette size={24} style={{ color: color || '#000' }} />
-      </button>
+    <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-2">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Stroke</span>
+        <div className="flex flex-col items-center gap-1">
+          <button
+            type="button"
+            aria-label="Increase stroke thickness"
+            onClick={() => handleThicknessChange(thickness + 0.1)}
+            className="thickness-up flex h-6 w-full items-center justify-center rounded border-slate-200 bg-slate-50 text-sm font-bold text-slate-700 transition hover:bg-slate-200"
+          >
+            <FaArrowUp />
+          </button>
 
-      {/* Floating Popup Window */}
-      {isOpen && (
-        <div
-          // Prevent any mouse interactions inside this menu from reaching outer canvas listeners
-          onMouseDown={(e) => e.stopPropagation()}
-          onMouseUp={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute left-full top-0 ml-3 z-50 p-4 bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col items-center gap-3 w-56 select-none"
+          <input
+            type="number"
+            inputMode="decimal"
+            min={1}
+            max={15}
+            step={0.1}
+            value={thickness}
+            onChange={(event) => handleThicknessChange(Number(event.target.value || 1))}
+            className="h-9 w-full rounded border border-slate-200 bg-white px-2 text-center text-sm font-medium text-slate-700 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+
+          <button
+            type="button"
+            aria-label="Decrease stroke thickness"
+            onClick={() => handleThicknessChange(thickness - 0.1)}
+            className="thickness-down flex h-6 w-full items-center justify-center rounded  bg-slate-50 hover:bg-slate-200 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+          >
+            <FaArrowDown />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative w-full">
+        <button
+          type="button"
+          onClick={() => setIsOpen((open) => !open)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-700 transition hover:bg-slate-100"
         >
-          {/* Header */}
-          <div className="flex items-center justify-between w-full pb-1 border-b border-gray-100">
-            <span className="text-xs font-semibold uppercase text-gray-500">Color Picker</span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsOpen(false);
-              }}
-              className="text-gray-400 hover:text-gray-700"
-            >
-              <FaTimes size={14} />
-            </button>
-          </div>
+          <FaPalette size={16} style={{ color: color || '#000000' }} />
+        </button>
 
-          {/* Color Wheel Canvas */}
-          <canvas
-            ref={canvasRef}
-            width={160}
-            height={160}
-            className="cursor-crosshair rounded-full shadow-inner"
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              isDragging.current = true;
-              pickColor(e);
-            }}
-            onMouseMove={(e) => {
-              e.stopPropagation();
-              if (isDragging.current) pickColor(e);
-            }}
-            onMouseUp={(e) => {
-              e.stopPropagation();
-              isDragging.current = false;
-            }}
-            onMouseLeave={() => {
-              isDragging.current = false;
-            }}
-          />
+        {isOpen && (
+          <div className="absolute left-full top-0 ml-3 w-52 rounded-xl border border-slate-200 bg-white p-3 shadow-xl shadow-slate-300/40">
+            <div className="mb-3 flex h-5 w-full rounded border border-slate-200" style={{ background: color }} />
 
-          {/* Active Color Preview */}
-          <div
-            className="w-full h-5 rounded border border-gray-200 shadow-inner"
-            style={{ backgroundColor: hexInput }}
-          />
+            <div className="grid grid-cols-2 gap-2">
+              {(['r', 'g', 'b'] as const).map((channel) => (
+                <label key={channel} className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  {channel}
+                  <input
+                    type="number"
+                    min={0}
+                    max={255}
+                    value={rgba[channel]}
+                    onChange={(event) => handleColorChange(channel, event.target.value)}
+                    className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  />
+                </label>
+              ))}
 
-          {/* RGB Inputs */}
-          <div className="grid grid-cols-3 gap-1.5 w-full text-xs">
-            {(['r', 'g', 'b'] as (keyof RGB)[]).map((ch) => (
-              <label key={ch} className="flex flex-col items-center">
-                <span className="uppercase text-gray-400 font-bold">{ch}</span>
+              <label className="col-span-2 flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Alpha
                 <input
                   type="number"
                   min={0}
-                  max={255}
-                  value={rgb[ch]}
-                  onChange={(e) => handleRgbChange(ch, e.target.value)}
-                  className="w-full border border-gray-300 rounded p-1 text-center font-mono focus:outline-blue-500"
+                  max={1}
+                  step={0.1}
+                  value={rgba.a}
+                  onChange={(event) => handleAlphaChange(event.target.value)}
+                  className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 />
               </label>
-            ))}
+            </div>
           </div>
-
-          {/* HEX Input */}
-          <div className="w-full text-xs">
-            <label className="flex items-center gap-1.5">
-              <span className="uppercase text-gray-400 font-bold">HEX</span>
-              <input
-                type="text"
-                maxLength={7}
-                value={hexInput}
-                onChange={handleHexChange}
-                className="w-full border border-gray-300 rounded p-1 text-center font-mono focus:outline-blue-500"
-              />
-            </label>
-          </div>
-        </div>
-      )}
-    </li>
+        )}
+      </div>
+    </div>
   );
 };
 

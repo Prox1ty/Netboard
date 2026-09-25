@@ -1,7 +1,7 @@
 import type CanvasInstance from "../../Canvas"
 import { type ToolHandler } from "../../types/opTypes";
 import type { Point } from "../../types";
-import { Circle } from "../../types/DrawingObject/Circle";
+import type { Circle } from "../../types/DrawingObject/Circle";
 
 export const circleTool: ToolHandler = {
     mouseDown(canvas: CanvasInstance, point: Point) {
@@ -10,6 +10,7 @@ export const circleTool: ToolHandler = {
             id: canvas.nextDrawingId++,
             type: "Circle",
             color: canvas.currentDrawingClr,
+            thickness: canvas.currentStrokeThickness,
             start,
             end: start,
         };
@@ -42,6 +43,7 @@ export const circleTool: ToolHandler = {
             id: canvas.currentCircle.id,
             color: canvas.currentCircle.color,
             type: "Circle",
+            thickness: canvas.currentCircle.thickness ?? canvas.currentStrokeThickness,
             start: canvas.currentCircle.start,
             end: canvas.currentCircle.end,
         };

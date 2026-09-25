@@ -4,13 +4,12 @@ import ToolBar from '../components/ToolBar';
 import SideBar from '../components/SideBar';
 import { type Tool } from '../../../engine/src/types/tool';
 import { useTool} from '../context/ToolContext';
-import { toolHandlers } from '../../../engine/src/types/opTypes';
 
 function WhiteBoard() {
 
     const canvasElementRef = useRef<HTMLCanvasElement>(null);
     const engineRef = useRef<CanvasInstance | null>(null);
-    const { selected, color } = useTool();
+    const { selected, color, thickness } = useTool();
 
     useEffect(() => {
         engineRef.current = new CanvasInstance(canvasElementRef.current!);
@@ -19,6 +18,13 @@ function WhiteBoard() {
         //     engineRef.current?.destroy();
         // }
     }, []);
+
+    useEffect(() => {
+        if (engineRef.current) {
+            engineRef.current.currentDrawingClr = color;
+            engineRef.current.currentStrokeThickness = thickness;
+        }
+    }, [color, thickness]);
 
     const getCanvasPosition = (event: React.MouseEvent<HTMLCanvasElement>) => {
         const rect = event.currentTarget.getBoundingClientRect();
@@ -77,6 +83,7 @@ function WhiteBoard() {
             onMouseUp={handleMouseUp}
             onKeyDown={(e) => {
             const isModifierPressed = e.ctrlKey || e.metaKey;
+            const isDelete = e.key === 'Delete';
 
             if (isModifierPressed && e.code === 'KeyZ') {
                 e.preventDefault(); 
@@ -87,6 +94,8 @@ function WhiteBoard() {
                 e.preventDefault();
                 console.log("Redo fired");
                 engineRef.current?.redo();
+            } else if (isDelete) {
+                engineRef.current?.deleteLast();
             }
             }}
             onWheel={handleWheel}

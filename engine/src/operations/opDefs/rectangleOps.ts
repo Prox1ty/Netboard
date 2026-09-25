@@ -1,7 +1,7 @@
 import type CanvasInstance from "../../Canvas"
 import { type ToolHandler } from "../../types/opTypes";
 import type { Point } from "../../types";
-import { Rectangle } from "../../types/DrawingObject/Rectangle";
+import type { Rectangle } from "../../types/DrawingObject/Rectangle";
 
 export const rectangleTool: ToolHandler = {
     mouseDown(canvas: CanvasInstance, point: Point) {
@@ -9,13 +9,14 @@ export const rectangleTool: ToolHandler = {
             id: canvas.nextDrawingId++,
             type: "Rectangle",
             color: canvas.currentDrawingClr,
+            thickness: canvas.currentStrokeThickness,
             point: canvas.camera.convertScreenToWorld(point),
             width: 0,
             height: 0,
         }
     },
     mouseMove(canvas: CanvasInstance, point: Point) {
-         if (!canvas.currentRect) return;
+        if (!canvas.currentRect) return;
         const worldMousePos = canvas.camera.convertScreenToWorld(point);
         canvas.currentRect.width = worldMousePos.x - canvas.currentRect.point.x;
         canvas.currentRect.height = worldMousePos.y - canvas.currentRect.point.y;
@@ -32,11 +33,11 @@ export const rectangleTool: ToolHandler = {
             // throttle 
             canvas.fullBoardRender();
             canvas.applyContextTransform();
-            canvas.renderer.throttledRender(canvas.currentRect);
+            canvas.renderer.throttledRectangleRender(canvas.currentRect);
         }
 
     },
-    mouseUp(canvas: CanvasInstance, point: Point) {
+    mouseUp(canvas: CanvasInstance, _point: Point) {
         if (canvas.currentRect === null) return;
         // not adding the point where we do mouseUp since I don't think that's needed. 
         // make a copy to store before clearing the global variable
@@ -44,6 +45,7 @@ export const rectangleTool: ToolHandler = {
             id: canvas.currentRect.id,
             color: canvas.currentRect.color,
             type: "Rectangle",
+            thickness: canvas.currentRect.thickness ?? canvas.currentStrokeThickness,
 
             point: canvas.currentRect.point,
             
@@ -78,9 +80,9 @@ export const rectangleTool: ToolHandler = {
         canvas.fullBoardRender();
     },
     redo(canvas: CanvasInstance) {
-        if (canvas.strokeHistoryIndex < 0) return;
+        if (canvas.strokeHistoryIndex >= canvas.strokeHistory.length - 1) return;
 
-        canvas.strokeHistoryIndex--;
+        canvas.strokeHistoryIndex++;
         canvas.fullBoardRender();
     }
 }

@@ -9,6 +9,9 @@ interface ToolContextType {
 
     color: string;
     setColor: Dispatch<SetStateAction<string>>;
+
+    thickness: number;
+    setThickness: Dispatch<SetStateAction<number>>;
 }
 
 const ToolContext = createContext<ToolContextType | undefined>(undefined);

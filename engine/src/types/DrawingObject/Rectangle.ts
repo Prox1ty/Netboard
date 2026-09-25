@@ -1,4 +1,4 @@
-import Point from "../Point";
+import type Point from "../Point";
 
 export interface Rectangle {
     id: number;
@@ -9,5 +9,5 @@ export interface Rectangle {
     height: number;
 
     color: string;
-    thickness?: string;
+    thickness?: number;
 }

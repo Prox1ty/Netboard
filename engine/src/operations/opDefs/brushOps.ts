@@ -1,8 +1,8 @@
 import type CanvasInstance from "../../Canvas"
 import { type ToolHandler } from "../../types/opTypes";
-import type { Point, Stroke } from "../../types";
+import type { Point } from "../../types";
 import { createNewStroke } from "../strokeOps"; 
-import { FreeHandDrawing } from "../../types/DrawingObject/FreeHandDrawing";
+import type { FreeHandDrawing } from "../../types/DrawingObject/FreeHandDrawing";
 
 export const brushTool: ToolHandler = {
     mouseDown(canvas: CanvasInstance, point: Point) {
@@ -11,8 +11,9 @@ export const brushTool: ToolHandler = {
         canvas.currentStroke = createNewStroke(
             canvas.nextDrawingId++,
             canvas.currentDrawingClr,
-            worldPoints.x, 
-            worldPoints.y
+            worldPoints.x,
+            worldPoints.y,
+            canvas.currentStrokeThickness
         ); // gonna reuse stuff from here 
 
         
@@ -51,6 +52,7 @@ export const brushTool: ToolHandler = {
             id: canvas.currentStroke.id,
             points: [...canvas.currentStroke.points],
             color: canvas.currentStroke.color,
+            thickness: canvas.currentStroke.thickness,
             type: "FreeHandDrawing"
         }
 
@@ -93,9 +95,9 @@ export const brushTool: ToolHandler = {
         canvas.fullBoardRender();
     },
     redo(canvas: CanvasInstance) {
-        if (canvas.strokeHistoryIndex < 0) return;
+        if (canvas.strokeHistoryIndex >= canvas.strokeHistory.length - 1) return;
 
-        canvas.strokeHistoryIndex--;
+        canvas.strokeHistoryIndex++;
         canvas.fullBoardRender();
     }
 }

@@ -2,4 +2,6 @@ export type Tool =
 | "brush"
 | "rectangle"
 | "circle" 
-| "select";
+| "select"
+| "delete"
+;

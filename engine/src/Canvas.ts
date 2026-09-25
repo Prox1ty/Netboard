@@ -1,13 +1,11 @@
-import Point from "./types/Point";
-import Stroke from "./types/Stroke";
+import type { Point, Stroke, VisibleChunkRange, Selection } from './types'
 import CanvasRenderer from "./Renderer"
 import Camera from "./Camera";
-import { VisibleChunkRange } from "./types";
 import { type Tool } from "./types/tool";
-import { toolHandlers, type ToolHandler } from "./types/opTypes";
+import { toolHandlers } from "./types/opTypes";
 
-import { getChunkCoordinate, getChunkKey, getVisibleChunkRange } from "./SpatialLogic";
-import { Circle, Rectangle, DrawingObject } from "./types/DrawingObject";
+import { getChunkKey, getVisibleChunkRange } from "./SpatialLogic";
+import type { Circle, Rectangle, DrawingObject } from "./types/DrawingObject";
 
 export type ChunkCoordinate = `${number},${number}`;
 
@@ -20,18 +18,21 @@ export default class CanvasInstance {
 
     spatialIndex = new Map<ChunkCoordinate, Set<number>>();
     drawings = new Map<number, DrawingObject> ();
-
+    selectedDrawings = new Set<number> ();
     operationHistory: Tool[] = [];
     operationHistoryIndex: number = -1;
 
     strokeHistory: number[] = [];
     strokeHistoryIndex: number = -1;
+    deleteHistory: Map<number, DrawingObject[]> = new Map();
     nextDrawingId = 1;
 
     currentStroke: Stroke; // for the brush tool
     currentRect: Rectangle | null; 
     currentCircle: Circle | null;
     currentDrawingClr = "red";
+    currentStrokeThickness = 1;
+    currentSelection: Selection | null;
 
     visibleChunkRange: VisibleChunkRange;
 
@@ -40,6 +41,7 @@ export default class CanvasInstance {
     readonly MIN_POINT_DISTANCE: number = 3;
 
     isPanning: boolean = false;
+    isSelected: boolean = false;
     lastMousePosition: Point | null = null;
 
     constructor(canvasEl: HTMLCanvasElement) {
@@ -54,10 +56,12 @@ export default class CanvasInstance {
             id: 0,
             createdAt: 0,
             color: "black",
+            thickness: 1,
             points: []
         }
         this.currentRect = null;
         this.currentCircle = null;
+        this.currentSelection = null;
 
         if (!this.ctx) {
             throw new Error('2D context unavailable');
@@ -115,9 +119,13 @@ export default class CanvasInstance {
             return;
         }
         
-        
+        if (this.isSelected) {
+            !this.isSelected;
+            this.selectedDrawings.clear();
+            this.fullBoardRender();
+        }
 
-        toolHandlers[tool].mouseDown(this, {x, y});
+        toolHandlers[tool].mouseDown!(this, {x, y});
     }
 
     applyContextTransform() {
@@ -135,7 +143,7 @@ export default class CanvasInstance {
         // will only run if isPanning is true
         this.screenPan(x, y);
 
-        toolHandlers[tool].mouseMove(this, {x, y});
+        toolHandlers[tool].mouseMove!(this, {x, y});
     }
 
     mouseUp(x: number, y: number, button: number, tool: Tool): void {
@@ -145,25 +153,26 @@ export default class CanvasInstance {
             return;
         }
 
-        toolHandlers[tool].mouseUp(this, {x, y});
         if (this.operationHistoryIndex < this.operationHistory.length - 1) { // if a mouseup is registered at a non-latest operation 
             // again id deletion will be managed by the toolHandler function.
             this.reWriteOperationHistory();
         }
+
+        toolHandlers[tool].mouseUp!(this, {x, y});
     }
 
     undo() {
         if (this.operationHistoryIndex < 0) return;
         const lastTool: Tool = this.operationHistory[this.operationHistoryIndex]!;
-        toolHandlers[lastTool].undo(this);
+        toolHandlers[lastTool].undo!(this);
         this.operationHistoryIndex--;
     }
 
     redo() {
         if (this.operationHistoryIndex >= this.operationHistory.length - 1) return;
 
-        const lastTool: Tool = this.operationHistory[this.operationHistoryIndex]!;
-        toolHandlers[lastTool].redo(this);
+        const lastTool: Tool = this.operationHistory[this.operationHistoryIndex + 1]!;
+        toolHandlers[lastTool].redo!(this);
         this.operationHistoryIndex++;
     }
 
@@ -313,7 +322,7 @@ export default class CanvasInstance {
         this.applyContextTransform();
 
         this.renderer.drawBoardBoundaries(this.camera, this.canvas);
-        this.renderer.reRenderStrokes(this.spatialIndex, this.drawings, getVisibleChunkRange(this.camera, this.canvas), activeStrokeIds);
+        this.renderer.reRenderStrokes(this.spatialIndex, this.selectedDrawings, this.drawings, getVisibleChunkRange(this.camera, this.canvas), activeStrokeIds);
     }
 
     getActiveStrokeHistoryStrokes(): number[] {
@@ -323,7 +332,7 @@ export default class CanvasInstance {
     deleteStroke(id: number) {
         this.drawings.delete(id);
 
-        for (const [chunk, strokeIds] of this.spatialIndex) {
+        for (const [, strokeIds] of this.spatialIndex) {
             strokeIds.delete(id);
         }
     }
@@ -331,5 +340,34 @@ export default class CanvasInstance {
     reWriteOperationHistory() {
         // REMOVE OVERWRITTEN OPERATIONS. THEIR IDs WILL BE REMOVED IN THEIR RESPECTIVE MOUSEUP OPERATION
         this.operationHistory.splice(this.operationHistoryIndex + 1);
+    }
+
+    deleteLast() {
+        if (!this.isSelected) {
+            return;
+        }
+        
+        if (this.operationHistoryIndex < this.operationHistory.length - 1) { // if a mouseup is registered at a non-latest operation 
+            // again id deletion will be managed by the toolHandler function.
+            this.reWriteOperationHistory();
+            this.deleteHistory.clear();
+        }
+
+        this.operationHistory.push('delete');
+        this.operationHistoryIndex++;
+        const index = this.operationHistoryIndex;
+        
+        const deletedDrawings: DrawingObject[] = [];
+        for (let obj of this.selectedDrawings) {
+            deletedDrawings.push(this.drawings.get(obj)!);
+        }
+
+        this.deleteHistory.set(index, deletedDrawings);
+
+        for (let obj of this.selectedDrawings) {
+            this.deleteStroke(obj); // actually deleting the thing
+        }
+
+        this.fullBoardRender();
     }
 }
